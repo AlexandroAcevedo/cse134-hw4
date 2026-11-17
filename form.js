@@ -53,22 +53,21 @@ if (form) {
     field.addEventListener("blur", () => { if (edited.has(field)) { visited.add(field); render(); } });
   }
   updateCounter();
-  // Native validation blocks the submit event. Capture invalid events from both
-  // button and Enter submissions; group the synchronous events into one attempt.
+  // The browser fires one invalid event per invalid control during a single
+  // submission attempt. Record the whole attempt once, not once per event.
+  // A timer resets the guard after the synchronous invalid-event sequence.
   form.addEventListener("invalid", event => {
     if (!fields.includes(event.target)) return;
     event.preventDefault();
     if (attemptQueued) return;
     attemptQueued = true;
-    queueMicrotask(() => {
-      attemptQueued = false;
-      for (const field of fields) {
-        const error = validate(field);
-        if (error) form_errors.push({ field: field.name, message: error });
-        visited.add(field);
-      }
-      render();
-    });
+    for (const field of fields) {
+      const error = validate(field);
+      if (error) form_errors.push({ field: field.name, message: error });
+      visited.add(field);
+    }
+    render();
+    window.setTimeout(() => { attemptQueued = false; }, 0);
   }, true);
   form.addEventListener("submit", event => {
     const invalid = fields.filter(field => validate(field));
